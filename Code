@@ -1,0 +1,76 @@
+library(tidyverse)
+library(ggplot2)
+library(RColorBrewer)
+library(ggthemes)
+setwd("C:/Users/User/Desktop/10/heluo/")
+acoustic <- read.csv("musicoset_songfeatures/acoustic_features.csv", sep="\t")
+song_pop <- read.csv("musicoset_popularity/song_pop.csv", sep="\t")
+billboard <- read.csv("billboard_24years_lyrics_spotify.csv")
+df <- acoustic %>% inner_join(song_pop, by = "song_id")
+df$is_pop <- df$is_pop == "True" | df$is_pop == TRUE
+df$group <- ifelse(df$is_pop, "Popular", "Non-Popular")
+audio_cols <- c("danceability","energy", "loudness","speechiness", "acousticness","instrumentalness","liveness","valence","tempo")
+# Figure 1:Correlation Heatmap
+cor_data <- df %>% select(all_of(audio_cols)) %>% cor(use = "pairwise.complete.obs")
+cor_long <- as.data.frame(as.table(cor_data)) %>%
+rename(Var1 = Var1, Var2 = Var2, value = Freq)
+fig1 <- ggplot(cor_long, aes(x = Var1, y = Var2, fill = value)) +
+geom_tile(color = "white") +
+geom_text(aes(label = round(value, 2)), size = 2.5) +
+scale_fill_gradient2(low = "#2166AC", mid = "white", high = "#B2182B", midpoint = 0, limits = c(-1, 1), name = "Correlation") +
+labs(title = "Figure 1: Audio Features Correlation Matrix", x = "", y = "") +
+theme_minimal() +
+theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8), axis.text.y = element_text(size = 8), plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
+legend.position = "right")
+ggsave("Figure1_Correlation.png", fig1, width = 6, height = 5, dpi = 300)
+# Figure 2: Popular vs Non-Popular Comparison
+key_features <- c("danceability", "energy", "valence", "acousticness", "liveness", "speechiness")
+comparison <- df %>%
+group_by(group) %>%
+summarise(across(all_of(key_features), ~mean(., na.rm = TRUE))) %>%
+pivot_longer(cols = -group, names_to = "feature", values_to = "mean")
+fig2 <- ggplot(comparison, aes(x = feature, y = mean, fill = group)) +
+geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+scale_fill_manual(values = c("Popular" = "#1E88E5", "Non-Popular" = "#90CAF9")) +
+labs(title = "Figure 2: Popular vs Non-Popular Songs", x = "Audio Feature", y = "Mean Value", fill = "Group") +
+theme_minimal() +
+theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.title = element_text(hjust = 0.5, face = "bold", size = 10))
+ggsave("Figure2_Comparison.png", fig2, width = 7, height = 5, dpi = 300)
+# Figure 3: Time Trends
+billboard_clean <- billboard %>%filter(!is.na(danceability) & !is.na(valence) & !is.na(energy))
+yearly <- billboard_clean %>%
+group_by(year) %>%
+summarise(danceability = mean(danceability, na.rm = TRUE), energy = mean(energy, na.rm = TRUE), valence = mean(valence, na.rm = TRUE), acousticness = mean(acousticness, na.rm = TRUE), n = n()) %>%
+filter(n >= 10) %>%
+pivot_longer(cols = c(danceability, energy, valence, acousticness), names_to = "feature", values_to = "value")
+fig3 <- ggplot(yearly, aes(x = year, y = value, color = feature)) +
+geom_line(linewidth = 1) +
+geom_point(size = 1.5) +
+scale_color_brewer(palette = "Set1") +
+labs(title = "Figure 3: Audio Feature Trends Over Time", x = "Year", y = "Mean Value", color = "Feature") +
+theme_minimal() +
+theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
+legend.position = "bottom")
+ggsave("Figure3_Trends.png", fig3, width = 7, height = 5, dpi = 300)
+# Figure 4: Feature Distribution Density
+density_data <- df %>%
+select(group, danceability, valence) %>%
+pivot_longer(cols = c(danceability, valence), names_to = "feature", values_to = "value")fig4 <- ggplot(density_data, aes(x = value, fill = group, color = group)) +
+geom_density(alpha = 0.4) +
+facet_wrap(~feature, scales = "free") +
+scale_fill_manual(values = c("Popular" = "#1E88E5", "Non-Popular" = "#90CAF9")) +
+scale_color_manual(values = c("Popular" = "#0D47A1", "Non-Popular" = "#64B5F6")) +labs(title = "Figure 4: Feature Distribution by Popularity", x = "Value", y = "Density", fill = "Group", color = "Group") +
+theme_minimal() +
+theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
+legend.position = "bottom")
+ggsave("Figure4_Distribution.png", fig4, width = 8, height = 4, dpi = 300)
+cat("\n Summary Statistics \n")
+# T-test results
+for (feat in key_features) {
+pop_vals <- df[[feat]][df$is_pop == TRUE]
+nonpop_vals <- df[[feat]][df$is_pop == FALSE]
+t_res <- t.test(pop_vals, nonpop_vals)
+cat(sprintf("%s: Popular=%.3f, Non-Popular=%.3f, p=%.4f\n",
+feat, mean(pop_vals, na.rm=T), mean(nonpop_vals, na.rm=T), t_res$p.value))
+}
+cat("\nAll figures saved successfully!\n")
