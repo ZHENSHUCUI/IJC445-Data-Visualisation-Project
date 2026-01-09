@@ -1,8 +1,13 @@
+rm(list = ls())
+install.packages(c("tidyverse", "caret", "randomForest", "xgboost", "pROC", 
+                   "patchwork", "corrplot", "naniar"))
 library(tidyverse)
 library(ggplot2)
 library(RColorBrewer)
 library(ggthemes)
+
 setwd("C:/Users/User/Desktop/10/heluo/")
+
 acoustic <- read.csv("musicoset_songfeatures/acoustic_features.csv", sep="\t")
 song_pop <- read.csv("musicoset_popularity/song_pop.csv", sep="\t")
 billboard <- read.csv("billboard_24years_lyrics_spotify.csv")
