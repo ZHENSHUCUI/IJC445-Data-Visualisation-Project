@@ -1,6 +1,6 @@
 rm(list = ls())
-install.packages(c("tidyverse", "caret", "randomForest", "xgboost", "pROC", 
-                   "patchwork", "corrplot", "naniar"))
+install.packages(c("tidyverse", "ggplot2", "RColorBrewer", "ggthemes"))
+
 library(tidyverse)
 library(ggplot2)
 library(RColorBrewer)
